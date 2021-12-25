@@ -132,9 +132,9 @@ def _inv_preemphasis(wav):
     return wav
 
 def _griffin_lim(S):
-    if hparams.griffin_lim_use_torchaudio:
+    if True:
         # Torchaudio result is same, but much faster
-        device = hparams.griffin_lim_device
+        device = torch.device("cpu")
         S_tensor = torch.tensor(S, dtype=torch.float32).to(device)
         window_tensor = torch.tensor(signal.windows.hann(hparams.win_size, sym=True), dtype=torch.float32).to(device)
         wav_tensor = torchaudio.functional.griffinlim(S_tensor, window_tensor, hparams.n_fft, hparams.hop_size,
