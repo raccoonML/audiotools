@@ -1,4 +1,5 @@
 from argparse import Namespace
+import torch
 
 hparams = Namespace(sample_rate = 24000,
                     n_fft = 2048,
@@ -16,4 +17,6 @@ hparams = Namespace(sample_rate = 24000,
                     signal_normalization = True,
                     allow_clipping_in_normalization = True,
                     power = 1.2,
-                    griffin_lim_iters = 100)
+                    griffin_lim_iters = 100,
+                    griffin_lim_use_torchaudio = True,
+                    griffin_lim_device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))

@@ -25,6 +25,8 @@ import numpy as np
 import soundfile as sf
 from scipy import signal
 from hparams import hparams
+import torch
+import torchaudio
 
 _mel_basis = librosa.filters.mel(hparams.sample_rate, hparams.n_fft, n_mels=hparams.num_mels,
                                  fmin=hparams.fmin, fmax=hparams.fmax)
@@ -111,13 +113,7 @@ def inv_mel_spectrogram(S):
     S = np.dot(_inv_mel_basis, S)
 
     # Use Griffin-Lim to recover waveform
-    # Initialize angles to random values
-    angles = np.exp(2j * np.pi * np.random.rand(*S.shape))
-    S = np.abs(S).astype(np.complex)
-    wav = librosa.istft(S * angles, hop_length=hparams.hop_size, win_length=hparams.win_size)
-    for i in range(hparams.griffin_lim_iters):
-        angles = np.exp(1j * np.angle(librosa.stft(wav, n_fft=hparams.n_fft, hop_length=hparams.hop_size, win_length=hparams.win_size)))
-        wav = librosa.istft(S * angles, hop_length=hparams.hop_size, win_length=hparams.win_size)
+    wav = _griffin_lim(S ** hparams.power)
 
     # Invert preemphasis
     if hparams.preemphasize:
@@ -133,4 +129,24 @@ def _preemphasis(wav):
 def _inv_preemphasis(wav):
     # Inverts the preemphasis filter.
     wav = signal.lfilter([1], [1, -hparams.preemphasis], wav)
+    return wav
+
+def _griffin_lim(S):
+    if hparams.griffin_lim_use_torchaudio:
+        # Torchaudio result is same, but much faster
+        device = hparams.griffin_lim_device
+        S_tensor = torch.tensor(S, dtype=torch.float32).to(device)
+        window_tensor = torch.tensor(signal.windows.hann(hparams.win_size, sym=True), dtype=torch.float32).to(device)
+        wav_tensor = torchaudio.functional.griffinlim(S_tensor, window_tensor, hparams.n_fft, hparams.hop_size,
+                                                      hparams.win_size, 1.0, hparams.griffin_lim_iters, 0.0, None, False)
+        wav = wav_tensor.cpu().numpy()
+    else:
+        # Another Griffin-Lim implementation
+        angles = np.exp(2j * np.pi * np.random.rand(*S.shape))
+        S = np.abs(S).astype(np.complex)
+        wav = librosa.istft(S * angles, hop_length=hparams.hop_size, win_length=hparams.win_size)
+        for i in range(hparams.griffin_lim_iters):
+            angles = np.exp(1j * np.angle(librosa.stft(wav, n_fft=hparams.n_fft, hop_length=hparams.hop_size, win_length=hparams.win_size)))
+            wav = librosa.istft(S * angles, hop_length=hparams.hop_size, win_length=hparams.win_size)
+
     return wav
