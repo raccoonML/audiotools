@@ -1,0 +1,6 @@
+numpy<=1.20
+librosa
+SoundFile
+matplotlib
+PyQt5
+sounddevice
