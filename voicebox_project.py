@@ -31,9 +31,9 @@ class Voicebox_Project:
         # The vocoder toolbox also vocodes the spectrogram with Griffin-Lim for comparison.
         # Inputs: wav (from voicebox)
         # Outputs: spec, wav_GL, spec_GL (to voicebox)
-        self.source_spec = audio.melspectrogram(wav)
-        wav_GL = audio.inv_mel_spectrogram(self.source_spec)
-        spec_GL = audio.melspectrogram(wav_GL)
+        self.source_spec = audio.melspectrogram(wav, hparams)
+        wav_GL = audio.inv_mel_spectrogram(self.source_spec, hparams)
+        spec_GL = audio.melspectrogram(wav_GL, hparams)
         return self.source_spec.T, wav_GL, spec_GL.T
 
     def vocode_action(self):
@@ -42,6 +42,6 @@ class Voicebox_Project:
         # Inputs: None
         # Outputs: wav, spec (to voicebox)
         
-        wav = audio.inv_mel_spectrogram(self.source_spec)
-        spec = audio.melspectrogram(wav)
+        wav = audio.inv_mel_spectrogram(self.source_spec, hparams)
+        spec = audio.melspectrogram(wav, hparams)
         return wav, spec.T

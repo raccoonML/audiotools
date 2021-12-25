@@ -23,35 +23,28 @@
 import librosa
 import numpy as np
 import soundfile as sf
-from scipy import signal
-from hparams import hparams
 import torch
 import torchaudio
+from scipy import signal
 
-_mel_basis = librosa.filters.mel(hparams.sample_rate, hparams.n_fft, n_mels=hparams.num_mels,
-                                 fmin=hparams.fmin, fmax=hparams.fmax)
+_mel_basis = None
 
-# inverse mel basis
-p = np.matmul(_mel_basis, _mel_basis.T)
-d = [1.0 / x if np.abs(x) > 1.0e-8 else x for x in np.sum(p, axis=0)]
-_inv_mel_basis = np.matmul(_mel_basis.T, np.diag(d))
-
-def load_wav(path):
+def load_wav(path, hparams):
     # Loads an audio file and returns the waveform data.
     wav, _ = librosa.load(str(path), hparams.sample_rate)
     return wav
 
-def save_wav(wav, path):
+def save_wav(wav, path, hparams):
     # Saves waveform data to audio file.
     sf.write(path, wav, hparams.sample_rate)
 
-def melspectrogram(wav):
+def melspectrogram(wav, hparams):
     # Converts a waveform to a mel-scale spectrogram.
     # Output shape = (num_mels, frames)
 
     # Apply preemphasis
     if hparams.preemphasize:
-        wav = _preemphasis(wav)
+        wav = _preemphasis(wav, hparams)
 
     # Short-time Fourier Transform (STFT)
     D = librosa.stft(y=wav,
@@ -61,6 +54,12 @@ def melspectrogram(wav):
 
     # Convert complex-valued output of STFT to absolute value (real)
     S = np.abs(D)
+
+    # Build and cache mel basis
+    # This improves speed when calculating thousands of mel spectrograms.
+    global _mel_basis
+    if _mel_basis is None:
+        _mel_basis = _build_mel_basis(hparams)
 
     # Transform to mel scale
     S = np.dot(_mel_basis, S)
@@ -86,7 +85,7 @@ def melspectrogram(wav):
 
     return S
 
-def inv_mel_spectrogram(S):
+def inv_mel_spectrogram(S, hparams):
     # Converts a mel spectrogram to waveform using Griffin-Lim
     # Input shape = (num_mels, frames)
     
@@ -109,29 +108,44 @@ def inv_mel_spectrogram(S):
     S = S + hparams.ref_level_db
     S = np.power(10.0, 0.05 * S)
 
+    # Build and cache mel basis
+    # This improves speed when calculating thousands of mel spectrograms.
+    global _mel_basis
+    if _mel_basis is None:
+        _mel_basis = _build_mel_basis(hparams)
+
+    # Inverse mel basis
+    p = np.matmul(_mel_basis, _mel_basis.T)
+    d = [1.0 / x if np.abs(x) > 1.0e-8 else x for x in np.sum(p, axis=0)]
+    _inv_mel_basis = np.matmul(_mel_basis.T, np.diag(d))
+
     # Invert mel basis to recover linear spectrogram
     S = np.dot(_inv_mel_basis, S)
 
     # Use Griffin-Lim to recover waveform
-    wav = _griffin_lim(S ** hparams.power)
+    wav = _griffin_lim(S ** hparams.power, hparams)
 
     # Invert preemphasis
     if hparams.preemphasize:
-        wav = _inv_preemphasis(wav)
+        wav = _inv_preemphasis(wav, hparams)
 
     return wav
 
-def _preemphasis(wav):
+def _preemphasis(wav, hparams):
     # Amplifies high frequency content in a waveform.
     wav = signal.lfilter([1, -hparams.preemphasis], [1], wav)
     return wav
 
-def _inv_preemphasis(wav):
+def _inv_preemphasis(wav, hparams):
     # Inverts the preemphasis filter.
     wav = signal.lfilter([1], [1, -hparams.preemphasis], wav)
     return wav
 
-def _griffin_lim(S):
+def _build_mel_basis(hparams):
+    return librosa.filters.mel(hparams.sample_rate, hparams.n_fft, n_mels=hparams.num_mels,
+                               fmin=hparams.fmin, fmax=hparams.fmax)
+
+def _griffin_lim(S, hparams):
     if True:
         # Torchaudio result is same, but much faster
         device = torch.device("cpu")
