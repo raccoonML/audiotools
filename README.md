@@ -4,7 +4,7 @@ This is a minimal audio library to generate and invert mel spectrograms for neur
 
 ## Setup
 
-There is no setup required to use this project. Add the provided [audio,py](https://github.com/raccoonML/audiotools/blob/main/audio.py) in your project.
+There is no setup required to use this project. Add the provided [audio.py](https://github.com/raccoonML/audiotools/blob/main/audio.py) to your project.
 
 ## Demo
 
