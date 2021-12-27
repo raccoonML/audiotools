@@ -1,5 +1,4 @@
 from argparse import Namespace
-import torch
 
 hparams = Namespace(sample_rate = 24000,
                     n_fft = 2048,
